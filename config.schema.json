@@ -1,0 +1,132 @@
+{
+  "pluginAlias": "Habeetat",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Homebridge plugin for Solidmation Habeetat smart home devices via MQTT",
+  "footerDisplay": "For help, see the [GitHub repository](https://github.com/mfernandezfunes/homebridge-habeetat)",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Platform Name",
+        "type": "string",
+        "default": "Habeetat",
+        "required": true
+      },
+      "mqtt": {
+        "title": "MQTT Configuration",
+        "type": "object",
+        "properties": {
+          "broker": {
+            "title": "Broker Address",
+            "type": "string",
+            "placeholder": "localhost",
+            "description": "MQTT broker hostname or IP address",
+            "required": true
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer",
+            "default": 1883,
+            "description": "MQTT broker port"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string",
+            "description": "MQTT broker username (optional)"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string",
+            "description": "MQTT broker password (optional)"
+          }
+        },
+        "required": ["broker"]
+      },
+      "baseTopic": {
+        "title": "Base Topic",
+        "type": "string",
+        "default": "habeetat",
+        "description": "Base MQTT topic used by habeetat-bridge"
+      },
+      "devices": {
+        "title": "Manual Device Configuration",
+        "type": "array",
+        "description": "Manually configure devices (optional, devices are auto-discovered via MQTT)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "uniqueId": {
+              "title": "Unique ID",
+              "type": "string",
+              "description": "Device unique identifier (MAC_node format)",
+              "required": true
+            },
+            "name": {
+              "title": "Name",
+              "type": "string",
+              "description": "Display name for the device",
+              "required": true
+            },
+            "type": {
+              "title": "Type",
+              "type": "string",
+              "enum": ["switch", "light", "dimmer", "rgb", "cover", "climate", "temperature_sensor"],
+              "description": "Device type",
+              "required": true
+            },
+            "stateTopic": {
+              "title": "State Topic",
+              "type": "string",
+              "description": "MQTT topic for device state"
+            },
+            "commandTopic": {
+              "title": "Command Topic",
+              "type": "string",
+              "description": "MQTT topic for device commands"
+            }
+          }
+        }
+      }
+    },
+    "required": ["mqtt"]
+  },
+  "layout": [
+    {
+      "type": "fieldset",
+      "title": "MQTT Settings",
+      "items": [
+        "mqtt.broker",
+        "mqtt.port",
+        "mqtt.username",
+        "mqtt.password"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Advanced Settings",
+      "expandable": true,
+      "items": [
+        "baseTopic"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Manual Device Configuration",
+      "expandable": true,
+      "items": [
+        {
+          "key": "devices",
+          "type": "array",
+          "items": [
+            "devices[].uniqueId",
+            "devices[].name",
+            "devices[].type",
+            "devices[].stateTopic",
+            "devices[].commandTopic"
+          ]
+        }
+      ]
+    }
+  ]
+}

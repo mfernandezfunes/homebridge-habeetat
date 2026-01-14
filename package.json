@@ -1,0 +1,46 @@
+{
+  "name": "homebridge-habeetat",
+  "version": "1.0.0",
+  "description": "Homebridge plugin for Solidmation Habeetat smart home devices via MQTT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "rimraf ./dist && tsc",
+    "watch": "tsc -w",
+    "prepublishOnly": "npm run build",
+    "lint": "eslint src/**.ts --max-warnings=0"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "homebridge",
+    "habeetat",
+    "solidmation",
+    "smart-home",
+    "mqtt",
+    "zigbee",
+    "wifi"
+  ],
+  "author": "Martin Fernandez",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mfernandezfunes/homebridge-habeetat.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mfernandezfunes/homebridge-habeetat/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "homebridge": ">=1.6.0"
+  },
+  "dependencies": {
+    "mqtt": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "homebridge": "^1.7.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.0"
+  },
+  "homepage": "https://github.com/mfernandezfunes/homebridge-habeetat#readme"
+}
