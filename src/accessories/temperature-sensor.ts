@@ -20,7 +20,7 @@ export class TemperatureSensorAccessory {
     private readonly platform: HabeetatPlatform,
     private readonly accessory: PlatformAccessory,
     private readonly device: { uniqueId: string; name: string },
-    private readonly mqtt: MqttClient,
+    _mqtt: MqttClient,
   ) {
     // Get or create the TemperatureSensor service
     this.service = this.accessory.getService(this.platform.Service.TemperatureSensor) ||

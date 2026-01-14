@@ -31,7 +31,8 @@ interface HabeetatDevice {
 /**
  * Platform configuration
  */
-interface HabeetatPlatformConfig extends PlatformConfig {
+export interface HabeetatPlatformConfig extends PlatformConfig {
+  name?: string;
   mqtt: {
     broker: string;
     port?: number;
@@ -49,8 +50,8 @@ interface HabeetatPlatformConfig extends PlatformConfig {
  * published by habeetat-bridge.
  */
 export class HabeetatPlatform implements DynamicPlatformPlugin {
-  public readonly Service: typeof Service = this.api.hap.Service;
-  public readonly Characteristic: typeof Characteristic = this.api.hap.Characteristic;
+  public readonly Service!: typeof Service;
+  public readonly Characteristic!: typeof Characteristic;
 
   // Cached accessories
   public readonly accessories: PlatformAccessory[] = [];
@@ -69,6 +70,8 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
     public readonly config: HabeetatPlatformConfig,
     public readonly api: API,
   ) {
+    this.Service = api.hap.Service;
+    this.Characteristic = api.hap.Characteristic;
     this.baseTopic = config.baseTopic || 'habeetat';
 
     this.log.debug('Finished initializing platform:', config.name);
