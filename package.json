@@ -1,6 +1,6 @@
 {
   "name": "homebridge-habeetat",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Homebridge plugin for Solidmation Habeetat smart home devices via MQTT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -35,6 +35,54 @@ This plugin connects to the same MQTT broker used by [habeetat-bridge](https://g
 npm install -g homebridge-habeetat
 ```
 
+### Local Installation (Development)
+
+#### Option 1: Using npm link
+
+```bash
+# Clone and build
+git clone https://github.com/mfernandezfunes/homebridge-habeetat.git
+cd homebridge-habeetat
+npm install
+npm run build
+
+# Create global symlink
+npm link
+
+# Link to Homebridge (run in Homebridge directory, e.g. ~/.homebridge)
+cd ~/.homebridge
+npm link homebridge-habeetat
+```
+
+#### Option 2: Install directly from local directory
+
+```bash
+# Clone and build
+git clone https://github.com/mfernandezfunes/homebridge-habeetat.git
+cd homebridge-habeetat
+npm install
+npm run build
+
+# Install globally from local directory
+npm install -g /path/to/homebridge-habeetat
+```
+
+### Publishing to npm (for production)
+
+```bash
+# Build and publish
+npm run build
+npm publish
+```
+
+Then install from npm:
+
+```bash
+npm install -g homebridge-habeetat
+```
+
+After installation, restart Homebridge to load the plugin.
+
 ## Configuration
 
 Add the following to your Homebridge `config.json`:

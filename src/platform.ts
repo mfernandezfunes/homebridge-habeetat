@@ -141,7 +141,8 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
     });
 
     // Subscribe to Home Assistant discovery topics
-    const discoveryTopic = 'homeassistant/+/habeetat_+/config';
+    // Using +/+/config and filtering in handler since MQTT wildcards can't be partial
+    const discoveryTopic = 'homeassistant/+/+/config';
     this.mqttClient.subscribe(discoveryTopic, (err) => {
       if (err) {
         this.log.error(`Failed to subscribe to ${discoveryTopic}:`, err.message);
@@ -186,6 +187,13 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
    */
   private handleDiscoveryMessage(topic: string, payload: string): void {
     try {
+      // Filter only habeetat devices (topic format: homeassistant/+/habeetat_xxx/config)
+      const topicParts = topic.split('/');
+      const deviceId = topicParts[2];
+      if (!deviceId.startsWith('habeetat_')) {
+        return;
+      }
+
       const config = JSON.parse(payload);
       
       if (!config.unique_id || !config.name) {
@@ -193,7 +201,6 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
       }
 
       // Extract device type from topic
-      const topicParts = topic.split('/');
       const component = topicParts[1]; // light, switch, cover, climate, sensor
 
       let deviceType: DeviceType;
