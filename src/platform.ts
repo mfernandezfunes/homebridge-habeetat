@@ -20,6 +20,7 @@ import {
   climateConfigFromDiscovery,
 } from './accessories/thermostat';
 import { TemperatureSensorAccessory } from './accessories/temperature-sensor';
+import { LightSensorAccessory } from './accessories/light-sensor';
 
 /**
  * Habeetat device configuration from MQTT discovery
@@ -151,7 +152,9 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
     });
 
     // Subscribe to Home Assistant discovery topics
-    const discoveryTopic = 'homeassistant/+/habeetat_+/config';
+    // (homeassistant/<component>/<node_id>/<object_id>/config); other
+    // integrations' entities are filtered by unique_id in the handler
+    const discoveryTopic = 'homeassistant/+/+/+/config';
     this.mqttClient.subscribe(discoveryTopic, (err) => {
       if (err) {
         this.log.error(`Failed to subscribe to ${discoveryTopic}:`, err.message);
@@ -243,7 +246,12 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
     try {
       const config = JSON.parse(payload);
       
-      if (!config.unique_id || !config.name) {
+      if (!config.unique_id || !config.name || !String(config.unique_id).startsWith('habeetat_')) {
+        return;
+      }
+
+      // Diagnostic entities (module temperature, configuration selects...) are not accessories
+      if (config.entity_category) {
         return;
       }
 
@@ -409,6 +417,10 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
 
       case DeviceType.TEMPERATURE_SENSOR:
         new TemperatureSensorAccessory(this, accessory, device, this.mqttClient!);
+        break;
+
+      case DeviceType.LIGHT_SENSOR:
+        new LightSensorAccessory(this, accessory, device, this.mqttClient!);
         break;
 
       default:

@@ -14,6 +14,7 @@ This plugin connects to the same MQTT broker used by [habeetat-bridge](https://g
 | Cover/Curtain | HPA-4202 | WindowCovering |
 | Climate/HVAC | BGH-7012, HPA-4911 | Thermostat + Fanv2 (speed, auto, swing) |
 | Temperature Sensor | HPA-2411 | TemperatureSensor |
+| Light Sensor | habeetat-bridge `light_sensor` | LightSensor (bridge percentage passed through as the level) |
 
 ## Prerequisites
 
