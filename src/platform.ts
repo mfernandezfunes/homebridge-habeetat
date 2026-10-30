@@ -12,7 +12,13 @@ import { PLATFORM_NAME, PLUGIN_NAME, DeviceType } from './settings';
 import { LightAccessory } from './accessories/light';
 import { SwitchAccessory } from './accessories/switch';
 import { CoverAccessory } from './accessories/cover';
-import { ThermostatAccessory } from './accessories/thermostat';
+import {
+  ThermostatAccessory,
+  ClimateConfig,
+  CLIMATE_STATE_FIELDS,
+  climateConfigFromBase,
+  climateConfigFromDiscovery,
+} from './accessories/thermostat';
 import { TemperatureSensorAccessory } from './accessories/temperature-sensor';
 
 /**
@@ -26,6 +32,7 @@ interface HabeetatDevice {
   commandTopic: string;
   manufacturer?: string;
   model?: string;
+  climate?: ClimateConfig;
 }
 
 /**
@@ -64,6 +71,9 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
 
   // Discovered devices
   private devices: Map<string, HabeetatDevice> = new Map();
+
+  // MQTT topic -> device (and state field, for one-topic-per-value devices like climate)
+  private topicRoutes: Map<string, { uniqueId: string; field?: string }> = new Map();
 
   constructor(
     public readonly log: Logger,
@@ -141,8 +151,7 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
     });
 
     // Subscribe to Home Assistant discovery topics
-    // Using +/+/config and filtering in handler since MQTT wildcards can't be partial
-    const discoveryTopic = 'homeassistant/+/+/config';
+    const discoveryTopic = 'homeassistant/+/habeetat_+/config';
     this.mqttClient.subscribe(discoveryTopic, (err) => {
       if (err) {
         this.log.error(`Failed to subscribe to ${discoveryTopic}:`, err.message);
@@ -150,6 +159,45 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
         this.log.debug(`Subscribed to ${discoveryTopic}`);
       }
     });
+
+    // Re-subscribe per-value topics of known devices
+    for (const device of this.devices.values()) {
+      this.subscribeDeviceTopics(device);
+    }
+  }
+
+  /**
+   * Subscribe to the topics of a device that are not covered by `<base>/+/state`
+   */
+  private subscribeDeviceTopics(device: HabeetatDevice): void {
+    if (!this.mqttClient?.connected || !device.climate) return;
+
+    for (const [key] of CLIMATE_STATE_FIELDS) {
+      const topic = device.climate.topics[key];
+      if (!topic) continue;
+      this.mqttClient.subscribe(topic, (err) => {
+        if (err) {
+          this.log.error(`Failed to subscribe to ${topic}:`, err.message);
+        }
+      });
+    }
+  }
+
+  /**
+   * Map the device's state topics to the device
+   */
+  private registerRoutes(device: HabeetatDevice): void {
+    if (device.stateTopic) {
+      this.topicRoutes.set(device.stateTopic, { uniqueId: device.uniqueId });
+    }
+    if (device.climate) {
+      for (const [key, field] of CLIMATE_STATE_FIELDS) {
+        const topic = device.climate.topics[key];
+        if (topic) {
+          this.topicRoutes.set(topic, { uniqueId: device.uniqueId, field });
+        }
+      }
+    }
   }
 
   /**
@@ -175,6 +223,12 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
     }
 
     // Handle state updates
+    const route = this.topicRoutes.get(topic);
+    if (route) {
+      this.handleStateUpdate(route.uniqueId, payload, route.field);
+      return;
+    }
+
     const match = topic.match(new RegExp(`^${this.baseTopic}/([^/]+)/state$`));
     if (match) {
       const deviceId = match[1];
@@ -187,13 +241,6 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
    */
   private handleDiscoveryMessage(topic: string, payload: string): void {
     try {
-      // Filter only habeetat devices (topic format: homeassistant/+/habeetat_xxx/config)
-      const topicParts = topic.split('/');
-      const deviceId = topicParts[2];
-      if (!deviceId.startsWith('habeetat_')) {
-        return;
-      }
-
       const config = JSON.parse(payload);
       
       if (!config.unique_id || !config.name) {
@@ -201,9 +248,11 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
       }
 
       // Extract device type from topic
+      const topicParts = topic.split('/');
       const component = topicParts[1]; // light, switch, cover, climate, sensor
 
       let deviceType: DeviceType;
+      let climate: ClimateConfig | undefined;
       switch (component) {
         case 'light':
           // Check if RGB
@@ -223,6 +272,11 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
           break;
         case 'climate':
           deviceType = DeviceType.CLIMATE;
+          climate = climateConfigFromDiscovery(config);
+          if (!climate) {
+            this.log.warn(`Climate discovery for ${config.name} has no mode/temperature topics, skipping`);
+            return;
+          }
           break;
         case 'sensor':
           if (config.device_class === 'temperature') {
@@ -244,6 +298,7 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
         commandTopic: config.command_topic,
         manufacturer: config.device?.manufacturer || 'Solidmation',
         model: config.device?.model || 'Habeetat',
+        climate,
       };
 
       this.addDevice(device);
@@ -255,12 +310,16 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
   /**
    * Handle device state update
    */
-  private handleStateUpdate(deviceId: string, payload: string): void {
+  private handleStateUpdate(deviceId: string, payload: string, field?: string): void {
     const accessory = this.accessories.find(
       (acc) => acc.context.device?.uniqueId === deviceId,
     );
 
     if (accessory && accessory.context.updateState) {
+      if (field) {
+        accessory.context.updateState({ [field]: payload });
+        return;
+      }
       try {
         const state = JSON.parse(payload);
         accessory.context.updateState(state);
@@ -279,7 +338,19 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
       return; // Already added
     }
 
+    // Manually configured climate devices: assume the habeetat-bridge topic layout
+    if (device.type === DeviceType.CLIMATE && !device.climate) {
+      const base = (device.commandTopic || device.stateTopic || '').replace(/\/(set|state)$/, '');
+      if (!base) {
+        this.log.warn(`Climate device ${device.name} needs commandTopic or stateTopic, skipping`);
+        return;
+      }
+      device.climate = climateConfigFromBase(base);
+    }
+
     this.devices.set(device.uniqueId, device);
+    this.registerRoutes(device);
+    this.subscribeDeviceTopics(device);
     this.log.info(`Discovered device: ${device.name} (${device.type})`);
 
     // Generate UUID for accessory
@@ -333,7 +404,7 @@ export class HabeetatPlatform implements DynamicPlatformPlugin {
         break;
 
       case DeviceType.CLIMATE:
-        new ThermostatAccessory(this, accessory, device, this.mqttClient!);
+        new ThermostatAccessory(this, accessory, { ...device, climate: device.climate! }, this.mqttClient!);
         break;
 
       case DeviceType.TEMPERATURE_SENSOR:
