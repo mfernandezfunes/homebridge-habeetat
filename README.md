@@ -12,8 +12,9 @@ This plugin connects to the same MQTT broker used by [habeetat-bridge](https://g
 | Dimmer | HPA-4153, HPA-2140 | Lightbulb |
 | RGB Light | HPA-2160 | Lightbulb (with color) |
 | Cover/Curtain | HPA-4202 | WindowCovering |
-| Climate/HVAC | BGH-7012 | Thermostat |
+| Climate/HVAC | BGH-7012, HPA-4911 | Thermostat + Fanv2 (speed, auto, swing) |
 | Temperature Sensor | HPA-2411 | TemperatureSensor |
+| Light Sensor | habeetat-bridge `light_sensor` | LightSensor (bridge percentage passed through as the level) |
 
 ## Prerequisites
 
@@ -136,6 +137,26 @@ Add the following to your Homebridge `config.json`:
 3. **homebridge-habeetat** subscribes to MQTT and creates HomeKit accessories
 4. You control devices via **Apple Home** app or Siri
 
+### Climate / HVAC
+
+The AC is exposed as two services on the same accessory:
+
+| HomeKit | habeetat-bridge |
+|---------|-----------------|
+| Thermostat Off / Heat / Cool / Auto | `set_mode` `off` / `heat` / `cool` / `auto` |
+| Thermostat target temperature | `set_temperature` |
+| Fan On / Off | Off turns the AC off; On restores the last mode |
+| Fan speed 1-33 / 34-66 / 67-100 % | `set_fan_mode` `low` / `medium` / `high` |
+| Fan Auto | `set_fan_mode` `auto` |
+| Fan swing (oscillate) | `set_swing_mode` `on` / `off` (only when the bridge announces `swing_modes`) |
+
+HomeKit has no dry or fan-only thermostat modes. When the AC is in one of them (set from Home
+Assistant or the remote), the thermostat shows **Off** and the fan shows **On**.
+
+The bridge publishes each climate value on its own topic (`<base>/mode`, `<base>/temperature`,
+`<base>/current_temperature`, `<base>/fan_mode`, `<base>/swing_mode`). The plugin reads them from the
+discovery message.
+
 ## Device Discovery
 
 Devices are automatically discovered via MQTT when habeetat-bridge publishes Home Assistant discovery messages. No manual configuration is required for most setups.
@@ -183,6 +204,9 @@ npm link
 # Watch mode
 npm run watch
 ```
+
+For a manually configured climate device, set `"type": "climate"` and `commandTopic` (for example
+`habeetat/ACCF2356FD7E_1/set`). The plugin derives the climate topics from it.
 
 ## Troubleshooting
 
